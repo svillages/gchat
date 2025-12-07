@@ -1,4 +1,4 @@
-/SERVER/.env
+SERVER/.env
 
-/WWW/common/lib/dbconn.php
+WWW/common/lib/dbconn.php
 
