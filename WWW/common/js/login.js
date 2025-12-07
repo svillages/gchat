@@ -17,11 +17,52 @@ function socialLogin(provider) {
     alert(provider + ' 로그인 기능은 준비 중입니다.');
 }
 
+function loginOK() {
+	const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    
+    // 이메일 입력
+    if (email == "") {
+		toastr["error"]("이메일을 입력해 주세요.");
+        return false;
+    }
+    
+    // 비밀번호 입력
+    if (password == "") {
+		toastr["warning"]("비밀번호를 입력해 주세요.");
+        return false;
+    }
+
+	let formData = $("#loginForm").serialize();
+	
+	$.ajax({
+	  url: '/ajax/login_ok',
+	  type: 'POST',
+	  data: formData,
+	  success: function(response) {
+		data = JSON.parse(response.trim());
+		if(data['result']=='Y') {
+	    	document.location.replace("/");
+	    	return false;    	
+	    } else {
+	    	toastr["error"](data['msg']);
+	    	return false;
+	    }
+	    
+	  },
+	  error: function(error) {
+	    toastr["error"]("에러가 발생했습니다. 다시 시도해 주세요.");
+		return false;
+	  }
+	});
+	return false;
+}
+
 // 엔터 키로 폼 제출
 document.getElementById('loginForm').addEventListener('keypress', function(e) {
     if (e.key === 'Enter' && e.target.type !== 'textarea') {
         e.preventDefault();
-        this.submit();
+        loginOK();
     }
 });
 

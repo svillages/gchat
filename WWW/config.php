@@ -1,6 +1,6 @@
 <?php
 $SET_SITE_ROOT  = dirname(__FILE__);	// site home 절대경로
-define('VERSION', '12345');
+define('VERSION', rand());
 
 // 비밀번호 해싱 설정
 define('PASSWORD_ALGO', PASSWORD_ARGON2ID); // PHP 7.2+에서는 ARGON2ID 권장
@@ -12,6 +12,14 @@ define('PASSWORD_OPTIONS', [
 
 // 세션 설정
 session_start();
+//토큰 생성
+if (empty($_SESSION['csrf_token'])) {
+    if (function_exists('random_bytes')) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    } else {
+        $_SESSION['csrf_token'] = bin2hex(openssl_random_pseudo_bytes(32));
+    }
+}
 
 // 언어 코드 매핑
 $language_map = [

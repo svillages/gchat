@@ -1,3 +1,4 @@
+
 * {
     margin: 0;
     padding: 0;
@@ -22,6 +23,24 @@ body {
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
     display: flex;
     overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+/* 모바일 환경에서 마진 제거 */
+@media (max-width: 768px) {
+    body {
+        padding: 0;
+        background: white;
+    }
+    
+    .chat-container {
+        width: 100%;
+        height: 100vh;
+        max-width: 100%;
+        border-radius: 0;
+        margin: 0;
+        box-shadow: none;
+    }
 }
 
 /* 사이드바 스타일 */
@@ -31,6 +50,24 @@ body {
     border-right: 1px solid #e9ecef;
     display: flex;
     flex-direction: column;
+    transition: transform 0.3s ease;
+}
+
+/* 모바일에서 사이드바는 기본적으로 보이고, 채팅방 선택시 사라짐 */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        z-index: 10;
+        transform: translateX(0);
+    }
+    
+    .sidebar.hidden {
+        transform: translateX(-100%);
+    }
 }
 
 .user-info {
@@ -156,6 +193,31 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
+    transition: transform 0.3s ease;
+}
+
+/* 모바일에서 메인 채팅 영역은 기본적으로 숨김 */
+@media (max-width: 768px) {
+    .chat-main {
+        width: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        z-index: 5;
+        transform: translateX(100%);
+    }
+    
+    .chat-main.active {
+        transform: translateX(0);
+    }
+    
+    /* 데스크탑에서는 보이도록 설정 */
+    @media (min-width: 769px) {
+        .chat-main {
+            transform: translateX(0) !important;
+        }
+    }
 }
 
 .chat-header {
@@ -165,23 +227,57 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: relative;
+}
+
+/* 모바일에서 뒤로가기 버튼 */
+.back-button {
+    display: none;
+    background: none;
+    border: none;
+    color: #667eea;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 8px;
+    margin-right: 15px;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.back-button:hover {
+    background: #f0f0f0;
+}
+
+@media (max-width: 768px) {
+    .back-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+.chat-title {
+    align-items: center;
+    flex: 1;
 }
 
 .chat-title h2 {
     font-size: 18px;
-    margin-bottom: 5px;
+    margin-bottom:5px;
 }
 
 .chat-members {
     display: flex;
     gap: 10px;
     font-size: 12px;
+    flex-wrap: wrap;
 }
 
 .member-tag {
+	margin:5px 0px;
     background: #e9ecef;
     padding: 3px 8px;
-    border-radius: 12px;
+    border-radius: 5px;
     display: flex;
     align-items: center;
     gap: 5px;
@@ -198,7 +294,7 @@ body {
     margin-bottom: 15px;
     display: flex;
     flex-direction: column;
-    max-width: 95%;
+    max-width: 100%;
 }
 
 .message.sent {
@@ -245,9 +341,7 @@ body {
     color: #6c757d;
     margin-top: 5px;
 }
-.language-flag img {
-	width:18px;
-}
+
 .chat-input {
     padding: 20px;
     background: white;
@@ -287,8 +381,50 @@ body {
 .send-button:hover {
     transform: scale(1.05);
 }
+.language-flag {
+	width:15px;
+}
+/* 모바일 키보드 입력 대응 */
+@media (max-width: 768px) {
+    .chat-input {
+        padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    }
+    
+    .message-input {
+        font-size: 16px; /* 모바일에서 더 큰 폰트 */
+    }
+}
 
-/* 새로운 채팅방 생성 모달 */
+/* 모바일 화면 회전 대응 */
+@media (max-width: 768px) and (orientation: landscape) {
+    .chat-container {
+        flex-direction: row;
+    }
+    
+    .sidebar {
+        width: 250px;
+        transform: translateX(0) !important;
+    }
+    
+    .chat-main.active {
+        width: calc(100% - 250px);
+        transform: translateX(0);
+    }
+}
+
+/* 안전 영역 대응 (iPhone X 이상) */
+@supports (padding: max(0px)) {
+    @media (max-width: 768px) {
+        .chat-container {
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+        }
+    }
+}
+
+/* 모달 스타일 수정 */
 .modal {
     display: none;
     position: fixed;
@@ -300,14 +436,33 @@ body {
     justify-content: center;
     align-items: center;
     z-index: 1000;
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+    overflow-y: auto; /* 스크롤 가능하도록 */
+    -webkit-overflow-scrolling: touch; /* 모바일 스크롤 부드럽게 */
 }
 
+/* 모달 콘텐츠 수정 */
 .modal-content {
     background: white;
-    padding: 30px;
-    border-radius: 15px;
+    padding: 25px;
+    border-radius: 12px;
     width: 90%;
     max-width: 500px;
+    max-height: 85vh; /* 높이 제한 */
+    overflow-y: auto;
+    box-sizing: border-box;
+    position: relative;
+    margin: 20px; /* 모바일에서 여백 추가 */
+    
+    /* 모달 중앙 정렬 보장 */
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    transform: none;
 }
 
 .modal-header {
@@ -317,7 +472,29 @@ body {
 .modal-header h2 {
     font-size: 20px;
 }
-
+/* 모바일에서 모달 창 최적화 */
+@media (max-width: 768px) {
+    .modal-content {
+        width: 95%;
+        margin: 10px;
+        padding: 20px;
+        max-height: 80vh;
+        border-radius: 10px;
+    }
+    
+    .modal-header h2 {
+        font-size: 18px;
+    }
+    
+    .form-control {
+        font-size: 16px; /* 모바일에서 더 큰 입력 폰트 */
+        padding: 12px;
+    }
+    
+    .user-search {
+        max-height: 150px;
+    }
+}
 .form-group {
     margin-bottom: 15px;
 }
@@ -340,6 +517,7 @@ body {
     border: 1px solid #e9ecef;
     border-radius: 5px;
     padding: 10px;
+    min-height:50px;
     max-height: 200px;
     overflow-y: auto;
     margin-top: 10px;
@@ -382,126 +560,150 @@ body {
     background: #6c757d;
     color: white;
 }
-/* 번역 메시지 스타일 */
-.translation-message {
-    margin-top: 8px;
-    border-left: 3px solid #4CAF50;
-    padding-left: 10px;
+
+/* 헤더 왼쪽 버튼 그룹 */
+.header-left {
+    display: flex;
+    gap: 8px;
+    align-items: center;
 }
 
-.translation-header {
+.add-user-button {
+    background: none;
+    border: none;
+    color: #667eea;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+}
+
+.add-user-button:hover {
+    background: #f0f0f0;
+}
+
+/* 사용자 추가 모달 특정 스타일 */
+.modal-subtitle {
+    color: #666;
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+.selected-users-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    min-height: 50px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.selected-user-tag {
+    background: #e3f2fd;
+    padding: 6px 12px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    border: 1px solid #bbdefb;
+}
+
+.selected-user-tag .remove-user {
+    color: #666;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+}
+
+.selected-user-tag .remove-user:hover {
+    background: #ffebee;
+    color: #d32f2f;
+}
+
+/* 검색 결과 스타일 */
+.user-option {
+    padding: 10px;
+    border-bottom: 1px solid #f8f9fa;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 5px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.user-option:hover {
+    background: #f8f9fa;
+}
+
+.user-option-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.user-option-name {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.user-option-details {
     font-size: 12px;
     color: #666;
+    margin-top: 2px;
 }
 
-.translation-language {
-    font-weight: 600;
-    color: #4CAF50;
-}
-
-.translation-label {
-    background: #4CAF50;
-    color: white;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 10px;
-    font-weight: bold;
-}
-
-.translation-content {
-    background: #f8f9fa;
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid #e9ecef;
-}
-
-.translated-text {
-    color: #333;
-    line-height: 1.4;
-}
-
-/* 번역 버튼 스타일 */
-.translate-btn {
-    background: #2196F3;
+.select-user-btn {
+    background: #667eea;
     color: white;
     border: none;
-    border-radius: 15px;
-    padding: 4px 10px;
-    font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 4px;
     cursor: pointer;
-    margin-top: 5px;
+    font-size: 12px;
+    transition: background 0.2s;
+}
+
+.select-user-btn:hover {
+    background: #5a6fd8;
+}
+
+.select-user-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+/* 기존 멤버 표시 */
+.existing-member-tag {
+    background: #e8f5e9;
+    padding: 6px 12px;
+    border-radius: 20px;
     display: flex;
     align-items: center;
-    gap: 4px;
-    transition: all 0.2s;
+    gap: 6px;
+    font-size: 14px;
+    border: 1px solid #c8e6c9;
 }
 
-.translate-btn:hover {
-    background: #1976D2;
-    transform: translateY(-1px);
-}
-
-.translate-btn i {
+.existing-member-tag .existing-badge {
     font-size: 10px;
-}
-
-/* 알림 스타일 */
-.notification {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 15px 20px;
-    border-radius: 8px;
+    background: #4caf50;
     color: white;
-    font-weight: 600;
-    z-index: 10000;
-    animation: slideIn 0.3s ease-out;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.notification-info {
-    background: #2196F3;
-}
-
-.notification-success {
-    background: #4CAF50;
-}
-
-.notification-warning {
-    background: #FF9800;
-}
-
-.notification-error {
-    background: #F44336;
-}
-
-@keyframes slideIn {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-
-/* 채팅 멤버 업데이트 애니메이션 */
-.member-tag {
-    animation: fadeIn 0.3s ease-out;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: scale(0.9);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
+    padding: 2px 6px;
+    border-radius: 10px;
 }

@@ -101,23 +101,21 @@ function checkPasswordMatch() {
 }
 
 // 폼 제출 전 최종 검증
-document.getElementById('registerForm').addEventListener('submit', function(e) {
+function registerOK() {
     const password = document.getElementById('password').value;
     const confirmPassword = document.getElementById('confirm_password').value;
     const agreeTerms = document.getElementById('agreeTerms').checked;
     
     // 비밀번호 일치 확인
     if (password !== confirmPassword) {
-        e.preventDefault();
-        alert('비밀번호가 일치하지 않습니다.');
-        return;
+		toastr["error"]("비밀번호가 일치하지 않습니다.");
+        return false;
     }
     
     // 약관 동의 확인
     if (!agreeTerms) {
-        e.preventDefault();
-        alert('이용약관에 동의해야 합니다.');
-        return;
+		toastr["warning"]("이용약관에 동의해야 합니다.");
+        return false;
     }
     
     // 비밀번호 강도 검사
@@ -129,10 +127,34 @@ document.getElementById('registerForm').addEventListener('submit', function(e) {
     if (!/[!@#$%^&*()\-_=+{};:,<.>]/.test(password)) passwordErrors.push('비밀번호에 최소 1개의 특수문자가 포함되어야 합니다.');
     
     if (passwordErrors.length > 0) {
-        e.preventDefault();
         alert('비밀번호 요구사항을 충족하지 않습니다:\n\n' + passwordErrors.join('\n'));
+		return false;
     }
-});
+	
+	let formData = $("#registerForm").serialize();
+	
+	$.ajax({
+	  url: '/ajax/register_ok',
+	  type: 'POST',
+	  data: formData,
+	  success: function(response) {
+		data = JSON.parse(response.trim());
+		if(data['result']=='Y') {
+	    	document.location.replace("/");
+	    	return false;    	
+	    } else {
+	    	toastr["error"](data['msg']);
+	    	return false;
+	    }
+	    
+	  },
+	  error: function(error) {
+	    toastr["error"]("에러가 발생했습니다. 다시 시도해 주세요.");
+		return false;
+	  }
+	});
+	return false;
+}
 
 // 페이지 로드 시 실행
 document.addEventListener('DOMContentLoaded', function() {

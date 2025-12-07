@@ -13,9 +13,6 @@ SET time_zone = "+00:00";
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
 /*!40101 SET NAMES utf8mb4 */;
 
---
--- 데이터베이스: `multichatdatabase`
---
 
 -- --------------------------------------------------------
 
@@ -23,6 +20,7 @@ SET time_zone = "+00:00";
 -- 테이블 구조 `chat_rooms`
 --
 
+DROP TABLE IF EXISTS `chat_rooms`;
 CREATE TABLE `chat_rooms` (
   `id` int(11) NOT NULL,
   `room_name` varchar(100) DEFAULT NULL,
@@ -36,6 +34,7 @@ CREATE TABLE `chat_rooms` (
 -- 테이블 구조 `messages`
 --
 
+DROP TABLE IF EXISTS `messages`;
 CREATE TABLE `messages` (
   `id` int(11) NOT NULL,
   `room_id` int(11) NOT NULL,
@@ -51,6 +50,7 @@ CREATE TABLE `messages` (
 -- 테이블 구조 `message_reads`
 --
 
+DROP TABLE IF EXISTS `message_reads`;
 CREATE TABLE `message_reads` (
   `id` int(11) NOT NULL,
   `message_id` int(11) NOT NULL,
@@ -64,6 +64,7 @@ CREATE TABLE `message_reads` (
 -- 테이블 구조 `message_translations`
 --
 
+DROP TABLE IF EXISTS `message_translations`;
 CREATE TABLE `message_translations` (
   `id` int(11) NOT NULL,
   `message_id` int(11) NOT NULL,
@@ -78,6 +79,7 @@ CREATE TABLE `message_translations` (
 -- 테이블 구조 `room_members`
 --
 
+DROP TABLE IF EXISTS `room_members`;
 CREATE TABLE `room_members` (
   `id` int(11) NOT NULL,
   `room_id` int(11) NOT NULL,
@@ -91,6 +93,7 @@ CREATE TABLE `room_members` (
 -- 테이블 구조 `users`
 --
 
+DROP TABLE IF EXISTS `users`;
 CREATE TABLE `users` (
   `id` int(11) NOT NULL,
   `username` varchar(50) NOT NULL,
@@ -112,6 +115,7 @@ CREATE TABLE `users` (
 -- 테이블 구조 `user_notifications`
 --
 
+DROP TABLE IF EXISTS `user_notifications`;
 CREATE TABLE `user_notifications` (
   `id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
@@ -137,16 +141,13 @@ ALTER TABLE `chat_rooms`
 -- 테이블의 인덱스 `messages`
 --
 ALTER TABLE `messages`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_room_created` (`room_id`,`created_at`),
-  ADD KEY `sender_id` (`sender_id`);
+  ADD PRIMARY KEY (`id`);
 
 --
 -- 테이블의 인덱스 `message_reads`
 --
 ALTER TABLE `message_reads`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_read` (`message_id`,`user_id`),
   ADD KEY `user_id` (`user_id`);
 
 --
@@ -154,15 +155,14 @@ ALTER TABLE `message_reads`
 --
 ALTER TABLE `message_translations`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_translation` (`message_id`,`target_language`);
+  ADD KEY `message_id` (`message_id`);
 
 --
 -- 테이블의 인덱스 `room_members`
 --
 ALTER TABLE `room_members`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_member` (`room_id`,`user_id`),
-  ADD KEY `user_id` (`user_id`);
+  ADD KEY `room_id` (`room_id`);
 
 --
 -- 테이블의 인덱스 `users`
@@ -224,49 +224,6 @@ ALTER TABLE `users`
 --
 ALTER TABLE `user_notifications`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- 덤프된 테이블의 제약사항
---
-
---
--- 테이블의 제약사항 `chat_rooms`
---
-ALTER TABLE `chat_rooms`
-  ADD CONSTRAINT `chat_rooms_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE CASCADE;
-
---
--- 테이블의 제약사항 `messages`
---
-ALTER TABLE `messages`
-  ADD CONSTRAINT `messages_ibfk_1` FOREIGN KEY (`room_id`) REFERENCES `chat_rooms` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `messages_ibfk_2` FOREIGN KEY (`sender_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
-
---
--- 테이블의 제약사항 `message_reads`
---
-ALTER TABLE `message_reads`
-  ADD CONSTRAINT `message_reads_ibfk_1` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `message_reads_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
-
---
--- 테이블의 제약사항 `message_translations`
---
-ALTER TABLE `message_translations`
-  ADD CONSTRAINT `message_translations_ibfk_1` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE;
-
---
--- 테이블의 제약사항 `room_members`
---
-ALTER TABLE `room_members`
-  ADD CONSTRAINT `room_members_ibfk_1` FOREIGN KEY (`room_id`) REFERENCES `chat_rooms` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `room_members_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
-
---
--- 테이블의 제약사항 `user_notifications`
---
-ALTER TABLE `user_notifications`
-  ADD CONSTRAINT `user_notifications_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

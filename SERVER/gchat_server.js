@@ -103,16 +103,6 @@ const userRooms = new Map();
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
-// 언어 코드 매핑
-const languageNames = {
-    'ko': 'Korean',
-    'zh': 'Chinese',
-    'ja': 'Japanese',
-    'en': 'English',
-    'es': 'Spanish',
-    'fr': 'French'
-};
-
 // WebSocket 연결 처리
 wss.on('connection', (ws) => {
     console.log('새 클라이언트 연결');
@@ -146,23 +136,29 @@ wss.on('connection', (ws) => {
 // WebSocket 메시지 핸들러 업데이트
 async function handleMessage(ws, data) {
     switch (data.type) {
-        case 'auth':
-            await handleAuth(ws, data);
-            break;
-        case 'join_room':
-            await handleJoinRoom(ws, data);
-            break;
-        case 'message':
-            await handleChatMessage(ws, data);
-            break;
-        case 'create_room':
-            await handleCreateRoom(ws, data);
-            break;
-        case 'request_translation':
-            await handleTranslationRequest(ws, data);
-            break;
-        default:
-            console.log('알 수 없는 메시지 타입:', data.type);
+	case 'auth':
+		await handleAuth(ws, data);
+		break;
+	case 'join_room':
+	    await handleJoinRoom(ws, data);
+	    break;
+	case 'message':
+	    await handleChatMessage(ws, data);
+	    break;
+	case 'create_room':
+	    await handleCreateRoom(ws, data);
+	    break;
+	case 'request_translation':
+	    await handleTranslationRequest(ws, data);
+	    break;
+	case 'add_member':
+		await handleAddMember(ws, data);
+		break;
+	case 'leave_room':
+		await handleLeaveRoom(ws, data);
+		break;
+	default:
+	    console.log('알 수 없는 메시지 타입:', data.type);
     }
 }
 
@@ -232,6 +228,21 @@ async function handleJoinRoom(ws, data) {
             type: 'error',
             message: '채팅방 참여 중 오류가 발생했습니다.'
         }));
+    }
+}
+
+// 채팅방 나가기 처리
+async function handleLeaveRoom(ws, data) {
+    const { roomId } = data;
+    const userId = ws.userId;
+    
+    try {
+        userRooms.delete(userId);
+        console.log(`사용자 ${userId} 가 채팅방 ${roomId} 에서 나갔습니다.`);
+        
+    } catch (error) {
+        console.error('채팅방 나가기 오류:', error);
+        sendError(ws, '채팅방 나가기 중 오류가 발생했습니다.');
     }
 }
 
@@ -462,8 +473,8 @@ async function translateWithChatGPT(text, sourceLang, targetLang) {
         throw new Error('OpenAI API 키가 설정되지 않았습니다.');
     }
     
-    const sourceLangName = languageNames[sourceLang] || sourceLang;
-    const targetLangName = languageNames[targetLang] || targetLang;
+    //const sourceLangName = languageNames[sourceLang] || sourceLang;
+    //const targetLangName = languageNames[targetLang] || targetLang;
     
     try {
         const response = await axios.post(OPENAI_URL, {
@@ -499,59 +510,169 @@ async function translateWithChatGPT(text, sourceLang, targetLang) {
     }
 }
 
-// 번역 요청 처리
-async function handleTranslationRequest(ws, data) {
-    const { messageId, sourceLang, targetLang, roomId } = data;
-    const userId = ws.userId;
+// 멤버 추가 처리 (수정된 버전)
+async function handleAddMember(ws, data) {
+    const { roomId, userIds } = data;
+    const addedByUserId = ws.userId;
+    
+    console.log(`멤버 추가 요청: 방 ${roomId}, 추가할 사용자 ${userIds}, 추가한 사람 ${addedByUserId}`);
     
     try {
-        // 원본 메시지 가져오기
-        const [messages] = await dbPool.execute(
-            'SELECT original_message FROM messages WHERE id = ? AND room_id = ?',
-            [messageId, roomId]
+        // 추가 권한 확인
+        const [isMember] = await dbPool.execute(
+            'SELECT 1 FROM room_members WHERE room_id = ? AND user_id = ?',
+            [roomId, addedByUserId]
         );
         
-        if (messages.length === 0) {
-            ws.send(JSON.stringify({
-                type: 'error',
-                message: '메시지를 찾을 수 없습니다.'
-            }));
+        if (isMember.length === 0) {
+            sendError(ws, '채팅방 멤버만 사용자를 추가할 수 있습니다.');
             return;
         }
         
-        const originalMessage = messages[0].original_message;
+        const addedMembers = [];
+        const alreadyMembers = [];
+        const failedMembers = [];
+        const addedMembersInfo = [];
+		
+		// 채팅방 이름 가져오기
+		const [roomResult] = await dbPool.execute(`
+		    SELECT room_name FROM chat_rooms WHERE id = ?
+		`, [roomId]);
+
+		// 변수를 블록 밖에서 선언
+		let roomName;
+		// 결과 사용 예시
+		if (roomResult.length > 0) {
+		    roomName = roomResult[0].room_name;		   
+		} else {
+			roomName = roomId;
+		}
+		console.log(`채팅방 이름: ${roomName}`);
         
-        // 번역 실행
-        const translatedMessage = await translateWithChatGPT(
-            originalMessage,
-            sourceLang,
-            targetLang
-        );
+        // 채팅방 기존 멤버 목록 가져오기 (알림용)
+        const [existingMembers] = await dbPool.execute(`
+            SELECT u.id FROM room_members rm
+            JOIN users u ON rm.user_id = u.id
+            WHERE rm.room_id = ?
+        `, [roomId]);
         
-        // 번역 결과 전송
+        const existingMemberIds = existingMembers.map(m => m.id);
+        
+        // 각 사용자 추가
+        for (const userId of userIds) {
+            // 이미 멤버인지 확인
+            if (existingMemberIds.includes(userId)) {
+                alreadyMembers.push(userId);
+                continue;
+            }
+            
+            try {
+                // 새 멤버 추가
+                await dbPool.execute(
+                    'INSERT INTO room_members (room_id, user_id) VALUES (?, ?)',
+                    [roomId, userId]
+                );
+                
+                // 추가된 멤버 정보 가져오기
+                const [userInfo] = await dbPool.execute(`
+                    SELECT u.id, u.username, u.language_code 
+                    FROM users u WHERE u.id = ?
+                `, [userId]);
+                
+                if (userInfo.length > 0) {
+                    const memberInfo = userInfo[0];
+                    memberInfo.flag = memberInfo.language_code;
+                    memberInfo.language_name = memberInfo.language_code;
+                    
+                    addedMembers.push(userId);
+                    addedMembersInfo.push(memberInfo);
+                    
+                    console.log(`멤버 추가 성공: ${memberInfo.username} (${userId})`);
+                    
+                    // 새로 추가된 멤버에게 알림
+                    const newMemberClient = clients.get(userId);
+                    if (newMemberClient) {
+                        newMemberClient.send(JSON.stringify({
+                            type: 'member_added',
+                            roomId: roomId,
+							roomName: roomName,
+                            newMember: memberInfo,
+                            addedBy: addedByUserId,
+                            timestamp: new Date().toISOString(),
+                            message: `${memberInfo.username}님이 채팅방에 초대되었습니다.`
+                        }));
+                        
+                        // 새 멤버가 현재 채팅방에 참여 중이라면 바로 업데이트
+                        if (userRooms.get(userId) === roomId) {
+                            newMemberClient.send(JSON.stringify({
+                                type: 'refresh_room',
+                                roomId: roomId,
+                                message: '채팅방 멤버가 업데이트되었습니다.'
+                            }));
+                        }
+                    }
+                }
+                
+            } catch (error) {
+                console.error(`멤버 추가 실패 (사용자 ${userId}):`, error);
+                failedMembers.push(userId);
+            }
+        }
+        
+        // 기존 멤버들에게 알림 (추가한 사람 포함)
+        if (addedMembers.length > 0) {
+            // 추가한 사람 정보 가져오기
+            const [adderInfo] = await dbPool.execute(
+                'SELECT username FROM users WHERE id = ?',
+                [addedByUserId]
+            );
+            
+            const adderName = adderInfo[0]?.username || '알 수 없음';
+            
+            // 모든 기존 멤버들에게 알림 (추가한 사람 포함)
+            for (const memberId of existingMemberIds) {
+                const client = clients.get(memberId);
+                if (client && client.readyState === 1) { // WebSocket.OPEN
+                    client.send(JSON.stringify({
+                        type: 'member_added_notification',
+                        roomId: roomId,
+                        addedMembers: addedMembersInfo,
+                        addedBy: addedByUserId,
+                        addedByName: adderName,
+                        timestamp: new Date().toISOString(),
+                        message: `${addedMembersInfo.map(m => m.username).join(', ')}님이 ${adderName}님에 의해 채팅방에 추가되었습니다.`
+                    }));
+                    
+                    // 현재 채팅방에 참여 중인 멤버에게는 실시간 업데이트
+                    if (userRooms.get(memberId) === roomId) {
+                        client.send(JSON.stringify({
+                            type: 'refresh_room_members',
+                            roomId: roomId,
+                            message: '새 멤버가 추가되었습니다. 멤버 목록을 새로고침하세요.'
+                        }));
+                    }
+                }
+            }
+            
+            // 추가된 멤버들도 기존 멤버 리스트에 추가
+            existingMemberIds.push(...addedMembers);
+        }
+        
+        // 요청자에게 결과 전송
         ws.send(JSON.stringify({
-            type: 'translated_message',
-            message_id: messageId,
-            room_id: roomId,
-            original_message: originalMessage,
-            translated_message: translatedMessage,
-            original_language: languageNames[sourceLang] || sourceLang,
-            target_language: languageNames[targetLang] || targetLang,
-            timestamp: new Date().toISOString()
+            type: 'members_added_result',
+            success: true,
+            roomId: roomId,
+            addedMembers: addedMembers,
+            alreadyMembers: alreadyMembers,
+            failedMembers: failedMembers,
+            addedMembersInfo: addedMembersInfo,
+            message: `총 ${userIds.length}명 중 ${addedMembers.length}명 추가 완료`
         }));
-        
-        // 번역 저장
-        await dbPool.execute(
-            'INSERT INTO message_translations (message_id, target_language, translated_message) VALUES (?, ?, ?)',
-            [messageId, targetLang, translatedMessage]
-        );
         
     } catch (error) {
-        console.error('번역 요청 처리 오류:', error);
-        ws.send(JSON.stringify({
-            type: 'error',
-            message: '번역 요청 처리 중 오류가 발생했습니다.'
-        }));
+        console.error('멤버 추가 처리 오류:', error);
+        sendError(ws, '멤버 추가 중 오류가 발생했습니다.');
     }
 }
 // 새 채팅방 생성
@@ -596,14 +717,16 @@ async function handleCreateRoom(ws, data) {
                 roomName: roomName
             }));
             
-            // 선택된 사용자들에게 알림
+			// 선택된 사용자들에게 알림
             for (const userId of userIds) {
                 const client = clients.get(userId);
                 if (client) {
                     client.send(JSON.stringify({
-                        type: 'room_created',
+                        type: 'room_invitation',
                         roomId: roomId,
-                        roomName: roomName
+                        roomName: roomName,
+                        invitedBy: creatorId,
+                        message: `${roomName} 채팅방에 초대되었습니다.`
                     }));
                 }
             }
@@ -626,6 +749,72 @@ async function handleCreateRoom(ws, data) {
     }
 }
 
+// 번역 요청 처리
+async function handleTranslationRequest(ws, data) {
+    const { messageId, sourceLang, targetLang, roomId } = data;
+    const userId = ws.userId;
+    
+    try {
+        // 원본 메시지 가져오기
+        const [messages] = await dbPool.execute(
+            'SELECT original_message FROM messages WHERE id = ? AND room_id = ?',
+            [messageId, roomId]
+        );
+        
+        if (messages.length === 0) {
+            ws.send(JSON.stringify({
+                type: 'error',
+                message: '메시지를 찾을 수 없습니다.'
+            }));
+            return;
+        }
+        
+        const originalMessage = messages[0].original_message;
+        
+        // 번역 실행
+        const translatedMessage = await translateWithChatGPT(
+            originalMessage,
+            sourceLang,
+            targetLang
+        );
+        
+        // 번역 결과 전송
+        ws.send(JSON.stringify({
+            type: 'translated_message',
+            message_id: messageId,
+            room_id: roomId,
+            original_message: originalMessage,
+            translated_message: translatedMessage,
+            original_language: sourceLang,
+            target_language: targetLang,
+            timestamp: new Date().toISOString()
+        }));
+        
+        // 번역 저장
+        await dbPool.execute(
+            'INSERT INTO message_translations (message_id, target_language, translated_message) VALUES (?, ?, ?)',
+            [messageId, targetLang, translatedMessage]
+        );
+        
+    } catch (error) {
+        console.error('번역 요청 처리 오류:', error);
+        ws.send(JSON.stringify({
+            type: 'error',
+            message: '번역 요청 처리 중 오류가 발생했습니다.'
+        }));
+    }
+}
+
+// 에러 전송 함수
+function sendError(ws, message) {
+    if (ws.readyState === 1) { // WebSocket.OPEN
+        ws.send(JSON.stringify({
+            type: 'error',
+            message: message,
+            timestamp: new Date().toISOString()
+        }));
+    }
+}
 // 서버 종료 시 정리
 process.on('SIGINT', async () => {
     console.log('서버 종료 중...');

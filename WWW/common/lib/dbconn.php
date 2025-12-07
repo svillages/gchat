@@ -2,7 +2,7 @@
 // 데이터베이스 연결 설정
 define('DB_HOST', 'localhost');
 define('DB_USER', 'dbuser');
-define('DB_PASS', 'dbpassword');
+define('DB_PASS', 'dbpass');
 define('DB_NAME', 'dbname');
 define('DB_PORT', 'dbport');
 // 데이터베이스 연결
